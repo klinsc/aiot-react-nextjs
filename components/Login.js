@@ -11,8 +11,9 @@ const Sketch = dynamic(() => import("react-p5").then((mod) => mod.default), {
   ssr: false,
 });
 import { useSnackbar } from "notistack";
-
+import Image from "next/image";
 export default function Login() {
+  const [door, setDoor] = useState("...");
   const [beaconStatus, setBeaconStatus] = React.useState("...");
   let video;
   let canvas;
@@ -50,8 +51,17 @@ export default function Login() {
     });
     if (response.data.status === 200) {
       if (response.data.identity) {
-        enqueueSnackbar(`Welcome ${response.data.identity}`, {
-          variant: "success",
+        enqueueSnackbar(
+          `Welcome ${response.data.identity}, the door is opening!`,
+          {
+            variant: "success",
+          }
+        );
+        setDoor("OPEN");
+
+        const tracks = document.querySelector("video").srcObject.getTracks();
+        tracks.forEach(function (track) {
+          track.stop();
         });
       }
     } else if (response.data.status === 403) {
@@ -59,7 +69,7 @@ export default function Login() {
         variant: "error",
       });
     } else {
-      enqueueSnackbar(`We don't know you!`, {
+      enqueueSnackbar(`Move a little bit closer...`, {
         variant: "error",
       });
     }
@@ -68,21 +78,46 @@ export default function Login() {
   };
 
   useEffect(() => {
+    let interval;
     const effectWrapper = async () => {
       try {
-        const response = await axios.get(
-          "http://localhost:5000/status?table=beacon"
-        );
-        setBeaconStatus(response.data.status);
+        interval = setInterval(async () => {
+          const response = await axios.get(
+            "http://localhost:5000/status?table=beacon"
+          );
+          if (response.data.status !== beaconStatus) {
+            setBeaconStatus(response.data.status);
+          }
+          if (response.data.status === "HOME") {
+            Notification.requestPermission((result) => {
+              if (result === "granted") {
+                navigator.serviceWorker.ready.then((registration) => {
+                  registration.showNotification("Vibration Sample", {
+                    body: "Buzz! Buzz!",
+                    icon: "../images/touch/chrome-touch-icon-192x192.png",
+                    vibrate: [200, 100, 200, 100, 200, 100, 200],
+                    tag: "vibration-sample",
+                  });
+                });
+              }
+            });
+
+            // new Notification(`You are at home, tab here to open the door!`, {
+            //   tag: "soManyNotification",
+            // });
+            // showNotification();
+          }
+        }, 3000);
         setKey((key) => key + 1);
       } catch (error) {
         console.error(error);
         setBeaconStatus("error");
       }
     };
-
     effectWrapper();
-  }, []);
+
+    return () => clearInterval(interval);
+  }, [beaconStatus]);
 
   return (
     <>
@@ -91,6 +126,8 @@ export default function Login() {
         handleSignup={handleSignup}
         setKey={setKey}
         video={video}
+        door={door}
+        setDoor={setDoor}
       />
       <Container maxWidth="lg">
         <Grid
@@ -126,7 +163,7 @@ export default function Login() {
           </Grid>
 
           <Grid item sx={{ textAlign: "center" }} id="p5Canvas" key={key}>
-            {key > 0 && (
+            {key > 0 && door !== "OPEN" && (
               <Sketch
                 setup={(p5, canvasParentRef) => {
                   // use parent to render the canvas in this ref
@@ -137,9 +174,21 @@ export default function Login() {
                   // get the image from the canvas
                 }}
                 draw={(p5) => {
-                  p5.image(video, 0, 0, 500, 375);
+                  if (video) {
+                    p5.image(video, 0, 0, 500, 375);
+                  }
                 }}
               />
+            )}
+            {door === "OPEN" && (
+              <>
+                <Image
+                  src={"/door.png"}
+                  alt="open door image"
+                  width={500}
+                  height={375}
+                ></Image>
+              </>
             )}
           </Grid>
         </Grid>

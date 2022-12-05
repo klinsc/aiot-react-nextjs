@@ -10,48 +10,30 @@ import { useTheme } from "@mui/material/styles";
 import { useRouter } from "next/router";
 import { useSnackbar } from "notistack";
 
-export function Door({ handleLogin, handleSignup,setKey, video }) {
-  const [door, setDoor] = useState("...");
+export function Door({ handleLogin, handleSignup, door }) {
   const theme = useTheme();
-  const router = useRouter();
   const { enqueueSnackbar } = useSnackbar();
 
-  // const handleSignup = async () => {
-  //   const mood = window.prompt("What is your name?");
-  //   video.loadPixels();
-  //   const image64 = video.canvas.toDataURL();
+  const setNotification = async () => {
+    if (Notification?.permission === "granted") {
+      new Notification(`The notification was already set!`, {});
+    } else if (Notification && Notification.permission !== "denied") {
+      Notification.requestPermission((status) => {
+        if (status === "granted") {
+          new Notification(`The notification is set!`, {});
+        } else {
+          enqueueSnackbar(`Set notification error`, {
+            variant: "error",
+          });
+        }
+      });
+    } else {
+      enqueueSnackbar(`Set notification error`, {
+        variant: "error",
+      });
+    }
+  };
 
-  //   const response = await axios.post("http://localhost:5000/register", {
-  //     image64: image64,
-  //     username,
-  //   });
-
-  //   setKey((key) => key + 1);
-
-  //   // if (response.status === 200) {
-  //   //   const tracks = document.querySelector("video").srcObject.getTracks();
-  //   //   tracks.forEach(function (track) {
-  //   //     track.stop();
-  //   //   });
-  //   // }
-  // };
-
-  useEffect(() => {
-    const effectWrapper = async () => {
-      const response = await axios.get(
-        "http://localhost:5000/status?table=door"
-      );
-
-      setDoor(response.data.status);
-    };
-
-    const interval = setInterval(() => {
-      effectWrapper();
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, []);
-  
   return (
     <>
       <Grid container spacing={1}>
@@ -111,6 +93,7 @@ export function Door({ handleLogin, handleSignup,setKey, video }) {
 
               if (password === "1234") {
                 await handleSignup();
+                await setNotification();
                 return;
               } else if (password === null || password === undefined) {
                 return;
